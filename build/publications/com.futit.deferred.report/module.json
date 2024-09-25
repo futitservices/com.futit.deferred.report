@@ -1,0 +1,99 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.futit",
+    "module": "deferred.report",
+    "version": "1.0.0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "7.3.2"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "deferred.report-1.0.0.jar",
+          "url": "deferred.report-1.0.0.jar",
+          "size": 10631004,
+          "sha512": "fb61d798b6a5c6eb2a0502a80f032f018a8457edb64d922cf878605cf00076127d4a1acc32d80838956bcebcf4f3ea75cd19a4f28b0057208c5aa695f938ad0f",
+          "sha256": "931dc545631c2618ee98d5d0e459509ff02753e5b9c14e00b6c036e404c09d6e",
+          "sha1": "2242a30a1fcb9748ea0cfa765dc226019bc00c12",
+          "md5": "c5637819a9b372ac2daffe9f55cd4269"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "com.etendoerp.platform",
+          "module": "etendo-core",
+          "version": {
+            "requires": "[22.1.0, 24.3.0)"
+          },
+          "excludes": [
+            {
+              "group": "com.etendoerp.platform",
+              "module": "etendo-core"
+            },
+            {
+              "group": "com.smf.classic.core",
+              "module": "ob"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "name": "deferred.report-1.0.0.jar",
+          "url": "deferred.report-1.0.0.jar",
+          "size": 10631004,
+          "sha512": "fb61d798b6a5c6eb2a0502a80f032f018a8457edb64d922cf878605cf00076127d4a1acc32d80838956bcebcf4f3ea75cd19a4f28b0057208c5aa695f938ad0f",
+          "sha256": "931dc545631c2618ee98d5d0e459509ff02753e5b9c14e00b6c036e404c09d6e",
+          "sha1": "2242a30a1fcb9748ea0cfa765dc226019bc00c12",
+          "md5": "c5637819a9b372ac2daffe9f55cd4269"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "deferred.report-1.0.0-sources.jar",
+          "url": "deferred.report-1.0.0-sources.jar",
+          "size": 5100,
+          "sha512": "17f835b72633befbce386a474ca35fe4557472d8f9e65c755ee4139fa3fdc024d68fc1acb1733e293988e9b74cbcbda9617c458d078eaf54b3a02e1158bb1d23",
+          "sha256": "5108cf26ab676f4c2280215bb72b14d0fa710d7791be6f53b2f58f6f1e08278e",
+          "sha1": "0729dd376ef7a07d306003556b6c1ecaded6392f",
+          "md5": "f0fcf4d0562aa4ea4e909c981566c81d"
+        }
+      ]
+    }
+  ]
+}

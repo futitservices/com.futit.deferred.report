@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <!-- This module was also published with a richer model, Gradle metadata,  -->
+  <!-- which should be used instead. Do not delete the following line which  -->
+  <!-- is to indicate to Gradle or any Gradle module metadata file consumer  -->
+  <!-- that they should prefer consuming it instead. -->
+  <!-- do_not_remove: published-with-gradle-metadata -->
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.futit</groupId>
+  <artifactId>deferred.report</artifactId>
+  <version>1.0.0</version>
+  <dependencies>
+    <dependency>
+      <groupId>com.etendoerp.platform</groupId>
+      <artifactId>etendo-core</artifactId>
+      <version>[22.1.0, 24.3.0)</version>
+      <scope>runtime</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>etendo-core</artifactId>
+          <groupId>com.etendoerp.platform</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>ob</artifactId>
+          <groupId>com.smf.classic.core</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies>
+</project>
