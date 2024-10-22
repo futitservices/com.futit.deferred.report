@@ -19,13 +19,9 @@ import java.util.UUID;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.DateFormatUtils;
 import org.apache.log4j.Logger;
-import org.apache.poi.hssf.usermodel.HSSFSheet;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -39,8 +35,12 @@ import org.openbravo.base.session.OBPropertiesProvider;
 import org.openbravo.client.application.process.BaseProcessActionHandler;
 import org.openbravo.client.application.report.BaseReportActionHandler;
 import org.openbravo.client.application.report.ReportingUtils;
-import org.openbravo.dal.service.OBDal;
 import org.openbravo.dal.core.OBContext;
+import org.openbravo.dal.service.OBDal;
+import org.openbravo.erpCommon.businessUtility.Preferences;
+import org.openbravo.erpCommon.utility.PropertyException;
+import org.openbravo.model.ad.system.Client;
+import org.openbravo.model.common.enterprise.Organization;
 
 public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
 
@@ -56,15 +56,23 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
   private static final String DATE_FORMAT_JAVA = "dateFormat.java";
   private static final String DATE_FORMAT_SQL = "dateTimeFormat.sql";
   private static final String FILE_NAME = "ReportDeferredRevenueExpenses.xlsx";
+  private static final String END_CUSTOMER_LBL = "End Customer";
+  private static final String END_CUSTOMER_ENABLED = "FUTDRER_EndCustomer";
 
   @Override
   protected JSONObject doExecute(Map<String, Object> parameters, String content) {
     try {
       log.info("content.................. ::  " + content);
+      log.info("endCustomerEnabled.................. ::  " + endCustomerEnabled());      
       JSONObject request = new JSONObject(content);
       JSONObject params = request.getJSONObject(PARAMS);
       String strBPartnerId = StringUtils.equals(params.getString("C_BPartner_ID"), "null") ? null : params.getString(
           "C_BPartner_ID");
+      String endCustomer = "";
+      if (endCustomerEnabled()) {
+        endCustomer = StringUtils.equals(params.getString("EM_Futdrer_Endcustomer"), "null") ? null : params.getString(
+            "EM_Futdrer_Endcustomer");
+      }
       boolean isSale = params.getBoolean("IsSale");
 
       DateDomainType dateDomainType = new DateDomainType();
@@ -84,7 +92,7 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
         sheet = workbook.createSheet(EXPENSE_SHEET);
       }
 
-      List<Object[]> invoiceDetails = getInvoiceDetails(strBPartnerId, startDate, endDate, isSale);
+      List<Object[]> invoiceDetails = getInvoiceDetails(strBPartnerId, endCustomer, startDate, endDate, isSale);
       if (invoiceDetails.size() > 0) {
         createRows(sheet, invoiceDetails, startDate, endDate);
       }
@@ -107,14 +115,17 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
     return formatter.parse(dateStr);
   }
 
-  private static List<Object[]> getInvoiceDetails(String bpartnerId, String startingDate, String endingDate,
-      boolean salesTransaction) throws ParseException {
+  private static List<Object[]> getInvoiceDetails(String bpartnerId, String endCustomer, String startingDate,
+      String endingDate, boolean salesTransaction) throws ParseException {
 
     Date startDate = convertStringToDate(startingDate);
     Date endDate = convertStringToDate(endingDate);
     // Build the base HQL query
     String hql = "select fa.businessPartner.name, il.invoice.documentNo, coalesce(il.invoice.description,'') as description, " +
         "to_char(fa.accountingDate, 'Mon-YYYY') as acctDate, fa.period.endingDate, ";
+    if (endCustomerEnabled()) {
+      hql += "il.invoice.futdrerEndcustomer as endcustomer, ";
+    }
     // If transaction is sales or purchase, add it to the HQL query
     if (salesTransaction) {
       hql += "sum(fa.debit) as amount ";
@@ -148,11 +159,29 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
       hql += "and fa.businessPartner.id = :bpartnerId ";
     }
 
+    // If End Customer is provided, add it to the HQL query
+    if (endCustomerEnabled()) {
+      if (endCustomer != null && !endCustomer.isEmpty()) {
+        hql += "and il.invoice.futdrerEndcustomer = :endCustomer ";
+      }
+    }
+
     // add group by clause to the HQL query
-    hql += "group by fa.businessPartner.name, il.invoice.documentNo, il.invoice.description, to_char(fa.accountingDate, 'Mon-YYYY'), fa.period.endingDate ";
-    
+    hql += "group by fa.businessPartner.name, ";
+
+    if (endCustomerEnabled()) {
+        hql += "il.invoice.futdrerEndcustomer, ";
+    }
+
+    hql += "il.invoice.documentNo, il.invoice.description, to_char(fa.accountingDate, 'Mon-YYYY'), fa.period.endingDate ";
     // add order by clause to the HQL query
-    hql += "order by il.invoice.documentNo, fa.period.endingDate ";
+    hql += "order by fa.period.endingDate, ";
+
+    if (endCustomerEnabled()) {
+        hql += "il.invoice.futdrerEndcustomer, ";
+    }
+
+    hql += "il.invoice.documentNo ";
 
     // Create the query object
     Query query = OBDal.getInstance().getSession().createQuery(hql);
@@ -168,6 +197,13 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
       query.setParameter("bpartnerId", bpartnerId);
     }
 
+    // Set optional end customer parameter if provided
+    if (endCustomerEnabled()) {
+      if (endCustomer != null && !endCustomer.isEmpty()) {
+        query.setParameter("endCustomer", endCustomer);
+      }
+    }
+
     // Execute the query and return the result list
     @SuppressWarnings("unchecked")
     List<Object[]> resultList = query.list();
@@ -178,7 +214,8 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
       String endDateStr) {
     // Start row for invoice lines (after the header)
     int rowIdx = 1;
-
+    String endCustomer = "";
+    BigDecimal amount = BigDecimal.ZERO;
     // Date formatter to match the column headers
     SimpleDateFormat monthYearFormat = new SimpleDateFormat("MMM-yyyy", Locale.ENGLISH);
     SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH);
@@ -198,20 +235,28 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
       String invoiceNo = (String) result[1];
       String description = (String) result[2];
       String month = (String) result[3];
-      BigDecimal amount = (BigDecimal) result[5];
-
+      if (endCustomerEnabled()) {
+        endCustomer = (String) result[5];
+        amount = (BigDecimal) result[6];
+      } else {
+        amount = (BigDecimal) result[5];
+      }
       // Populate the data map
       dataMap.putIfAbsent(invoiceNo, new LinkedHashMap<>());
       Map<String, Object> invoiceData = dataMap.get(invoiceNo);
       invoiceData.putIfAbsent("businessPartner", businessPartner);
+      if (endCustomerEnabled()) {
+        invoiceData.putIfAbsent("endCustomer", endCustomer);
+      }
       invoiceData.putIfAbsent("invoiceDescription", description);
 
       // Store monthly values
-      Map<String, BigDecimal> monthlyValues = (Map<String, BigDecimal>) invoiceData.getOrDefault("monthlyValues", new LinkedHashMap<String, BigDecimal>());
+      Map<String, BigDecimal> monthlyValues = (Map<String, BigDecimal>) invoiceData.getOrDefault("monthlyValues",
+          new LinkedHashMap<String, BigDecimal>());
       monthlyValues.put(month, amount);
       invoiceData.put("monthlyValues", monthlyValues);
     }
-
+    int idx = 0;
     // Set header row
     Set<String> months = new LinkedHashSet<>();
     for (Map<String, Object> invoiceData : dataMap.values()) {
@@ -224,11 +269,18 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
     rightCellStyle.setAlignment(HorizontalAlignment.RIGHT);
     // Create the header row
     Row headerRow = sheet.createRow(0);
-    headerRow.createCell(0).setCellValue(BUSINESS_PARTNER_LBL);
-    headerRow.createCell(1).setCellValue(INVOICE_NO_LBL);
-    headerRow.createCell(2).setCellValue(INVOICE_DESC_LBL);
+    headerRow.createCell(idx).setCellValue(BUSINESS_PARTNER_LBL);
+    if (endCustomerEnabled()) {
+      idx += 1;
+      headerRow.createCell(idx).setCellValue(END_CUSTOMER_LBL);
+    }
+    idx += 1;
+    headerRow.createCell(idx).setCellValue(INVOICE_NO_LBL);
+    idx += 1;
+    headerRow.createCell(idx).setCellValue(INVOICE_DESC_LBL);
+    idx += 1;
 
-    int colIndex = 3;
+    int colIndex = idx;
     for (String month : months) {
       Cell headerRowMonthCell = headerRow.createCell(colIndex++);
       headerRowMonthCell.setCellValue(month);
@@ -237,39 +289,64 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
     Cell headerRowTotalCell = headerRow.createCell(colIndex);
     headerRowTotalCell.setCellValue(TOTAL_LBL);
     headerRowTotalCell.setCellStyle(rightCellStyle);
-
+    idx = 0;
     // Write the data rows
     int rowIndex = 1;
+    int rdx = 0;
     for (Map.Entry<String, Map<String, Object>> entry : dataMap.entrySet()) {
       Row row = sheet.createRow(rowIndex++);
 
       String invoiceNo = entry.getKey();
       Map<String, Object> invoiceData = entry.getValue();
       String businessPartner = (String) invoiceData.get("businessPartner");
+      String endcustomer = (String) invoiceData.get("endCustomer");
       String invoiceDescription = (String) invoiceData.get("invoiceDescription");
       Map<String, BigDecimal> monthlyValues = (Map<String, BigDecimal>) invoiceData.get("monthlyValues");
 
       // Business partner, invoiceNo, and invoiceDescription
-      row.createCell(0).setCellValue(businessPartner);
-      row.createCell(1).setCellValue(invoiceNo);
-      row.createCell(2).setCellValue(invoiceDescription);
+      row.createCell(rdx).setCellValue(businessPartner);
+      if (endCustomerEnabled()) {
+        rdx += 1;
+        row.createCell(rdx).setCellValue(endcustomer);
+      }
+      rdx += 1;
+      row.createCell(rdx).setCellValue(invoiceNo);
+      rdx += 1;
+      row.createCell(rdx).setCellValue(invoiceDescription);
+      rdx += 1;
 
       // Write amounts for each month and calculate the total
-      colIndex = 3;
+      colIndex = rdx;
       BigDecimal total = BigDecimal.ZERO;
       for (String month : months) {
-        BigDecimal amount = monthlyValues.getOrDefault(month, BigDecimal.ZERO);
+        BigDecimal amt = monthlyValues.getOrDefault(month, BigDecimal.ZERO);
         Cell cell = row.createCell(colIndex++);
-        cell.setCellValue(amount.doubleValue());
+        cell.setCellValue(amt.doubleValue());
         cell.setCellStyle(rightCellStyle);
-        total = total.add(amount);
+        total = total.add(amt);
       }
 
       // Write the total value
       Cell totalCell = row.createCell(colIndex);
       totalCell.setCellValue(total.doubleValue());
       totalCell.setCellStyle(rightCellStyle);
+      rdx = 0;
     }
+  }
+
+  private static boolean endCustomerEnabled() {
+    boolean endCustomerEnabled = false;
+    Client client = OBDal.getInstance().get(Client.class, OBContext.getOBContext().getCurrentClient().getId());
+    Organization organization = OBDal.getInstance().get(Organization.class, "0");
+    try {
+      endCustomerEnabled = Preferences
+          .getPreferenceValue(END_CUSTOMER_ENABLED, true,
+              client, organization, null, null, null)
+          .equals("Y");
+    } catch (PropertyException e) {
+      endCustomerEnabled = false;
+    }
+    return endCustomerEnabled;
   }
 
   protected JSONObject buildDownloadResponse(Map<String, Object> parameters, String content,
