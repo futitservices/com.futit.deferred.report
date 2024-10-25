@@ -10,7 +10,7 @@ group          = "com.futit"
 version        = "1.0.0"
 description    = "Deferred Revenue and Expenses Report"
 ext.artifact   = "deferred.report"
-ext.repository = "https://maven.pkg.github.com/etendosoftware/com.futit.deferred.report"
+ext.repository = "https://maven.pkg.github.com/futitservices/com.futit.deferred.report"
 
 configurations {
     moduleDependencyContainer
@@ -27,7 +27,7 @@ publishing {
     }
     repositories {
         maven {
-            url "https://maven.pkg.github.com/etendosoftware/com.futit.deferred.report"
+            url "https://maven.pkg.github.com/futitservices/com.futit.deferred.report"
         }
     }
 }
@@ -35,7 +35,7 @@ publishing {
 repositories {
     mavenCentral()
     maven {
-        url "https://maven.pkg.github.com/etendosoftware/com.futit.deferred.report"
+        url "https://maven.pkg.github.com/futitservices/com.futit.deferred.report"
     }
     maven {
         url "https://repo.futit.cloud/repository/maven-releases"
