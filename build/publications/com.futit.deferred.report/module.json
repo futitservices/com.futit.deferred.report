@@ -3,7 +3,7 @@
   "component": {
     "group": "com.futit",
     "module": "deferred.report",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "attributes": {
       "org.gradle.status": "release"
     }
@@ -25,13 +25,13 @@
       },
       "files": [
         {
-          "name": "deferred.report-1.0.0.jar",
-          "url": "deferred.report-1.0.0.jar",
-          "size": 10631004,
-          "sha512": "fb61d798b6a5c6eb2a0502a80f032f018a8457edb64d922cf878605cf00076127d4a1acc32d80838956bcebcf4f3ea75cd19a4f28b0057208c5aa695f938ad0f",
-          "sha256": "931dc545631c2618ee98d5d0e459509ff02753e5b9c14e00b6c036e404c09d6e",
-          "sha1": "2242a30a1fcb9748ea0cfa765dc226019bc00c12",
-          "md5": "c5637819a9b372ac2daffe9f55cd4269"
+          "name": "deferred.report-1.0.1.jar",
+          "url": "deferred.report-1.0.1.jar",
+          "size": 13087803,
+          "sha512": "b1fc8e5cd747a6fc2e78b37f6b453398b45cd07b7492fe7604d9e803007e8cb1f581832dffb8a23b3a0c302e9ebcf2b7615fa7a35c501ef6223af78649a642ef",
+          "sha256": "d9b75e9c958edda215b34e00f54b705fb630338e944a69bfabaade7c0d25e6d7",
+          "sha1": "cf12e660045ea3c7b5e0e6af8a8528890777316a",
+          "md5": "51c0f7ebb655c767359726aaf02aa02e"
         }
       ]
     },
@@ -65,13 +65,13 @@
       ],
       "files": [
         {
-          "name": "deferred.report-1.0.0.jar",
-          "url": "deferred.report-1.0.0.jar",
-          "size": 10631004,
-          "sha512": "fb61d798b6a5c6eb2a0502a80f032f018a8457edb64d922cf878605cf00076127d4a1acc32d80838956bcebcf4f3ea75cd19a4f28b0057208c5aa695f938ad0f",
-          "sha256": "931dc545631c2618ee98d5d0e459509ff02753e5b9c14e00b6c036e404c09d6e",
-          "sha1": "2242a30a1fcb9748ea0cfa765dc226019bc00c12",
-          "md5": "c5637819a9b372ac2daffe9f55cd4269"
+          "name": "deferred.report-1.0.1.jar",
+          "url": "deferred.report-1.0.1.jar",
+          "size": 13087803,
+          "sha512": "b1fc8e5cd747a6fc2e78b37f6b453398b45cd07b7492fe7604d9e803007e8cb1f581832dffb8a23b3a0c302e9ebcf2b7615fa7a35c501ef6223af78649a642ef",
+          "sha256": "d9b75e9c958edda215b34e00f54b705fb630338e944a69bfabaade7c0d25e6d7",
+          "sha1": "cf12e660045ea3c7b5e0e6af8a8528890777316a",
+          "md5": "51c0f7ebb655c767359726aaf02aa02e"
         }
       ]
     },
@@ -85,13 +85,13 @@
       },
       "files": [
         {
-          "name": "deferred.report-1.0.0-sources.jar",
-          "url": "deferred.report-1.0.0-sources.jar",
-          "size": 5100,
-          "sha512": "17f835b72633befbce386a474ca35fe4557472d8f9e65c755ee4139fa3fdc024d68fc1acb1733e293988e9b74cbcbda9617c458d078eaf54b3a02e1158bb1d23",
-          "sha256": "5108cf26ab676f4c2280215bb72b14d0fa710d7791be6f53b2f58f6f1e08278e",
-          "sha1": "0729dd376ef7a07d306003556b6c1ecaded6392f",
-          "md5": "f0fcf4d0562aa4ea4e909c981566c81d"
+          "name": "deferred.report-1.0.1-sources.jar",
+          "url": "deferred.report-1.0.1-sources.jar",
+          "size": 5898,
+          "sha512": "7f92a814a5798f228d8178ccaaf207afa304eedbb387141cde39151d53e8aaed5a7bc12726e8665ec4367aa35846ccaa5a293964cfe2febf759e3e412e4e2ae3",
+          "sha256": "b8fd1b8a47a147dafd9e1f95c2f6cdfc0790f7da86e16ed4f0bd22cb1a7c633c",
+          "sha1": "c5f70fee2639f1e095831bbd921242e33b029fa0",
+          "md5": "a5b270afe165ede378f773d3876aead8"
         }
       ]
     }

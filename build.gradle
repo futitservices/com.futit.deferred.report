@@ -7,7 +7,7 @@
 */
 
 group          = "com.futit"
-version        = "1.0.0"
+version        = "1.0.1"
 description    = "Deferred Revenue and Expenses Report"
 ext.artifact   = "deferred.report"
 ext.repository = "https://maven.pkg.github.com/futitservices/com.futit.deferred.report"
