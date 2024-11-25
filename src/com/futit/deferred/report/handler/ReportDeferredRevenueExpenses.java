@@ -25,6 +25,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
@@ -52,10 +53,12 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
   private static final String INVOICE_NO_LBL = "Invoice No.";
   private static final String INVOICE_DESC_LBL = "Invoice Description";
   private static final String TOTAL_LBL = "Total";
+  private static final String REVENUE_LBL = "Deferred Revenue";
+  private static final String EXPENSE_LBL = "Deferred Expense";
+  private static final String SUMMARY_LBL = "Deferred Revenue and Expense Summary";
   private static final String PARAMS = "_params";
   private static final String DATE_FORMAT_JAVA = "dateFormat.java";
-  private static final String DATE_FORMAT_SQL = "dateTimeFormat.sql";
-  private static final String FILE_NAME = "ReportDeferredRevenueExpenses.xlsx";
+  private static final String FILE_NAME = "Deferred-Revenue-Expenses-Report.xlsx";
   private static final String END_CUSTOMER_LBL = "End Customer";
   private static final String END_CUSTOMER_ENABLED = "FUTDRER_EndCustomer";
 
@@ -63,7 +66,7 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
   protected JSONObject doExecute(Map<String, Object> parameters, String content) {
     try {
       log.info("content.................. ::  " + content);
-      log.info("endCustomerEnabled.................. ::  " + endCustomerEnabled());      
+      log.info("endCustomerEnabled.................. ::  " + endCustomerEnabled());
       JSONObject request = new JSONObject(content);
       JSONObject params = request.getJSONObject(PARAMS);
       String strBPartnerId = StringUtils.equals(params.getString("C_BPartner_ID"), "null") ? null : params.getString(
@@ -74,6 +77,8 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
             "EM_Futdrer_Endcustomer");
       }
       boolean isSale = params.getBoolean("IsSale");
+      boolean bothSalesPurchase = params.getBoolean("IsBoth");
+      boolean isSummary = params.getBoolean("IsSummary");
 
       DateDomainType dateDomainType = new DateDomainType();
       Date startDateParam = (Date) dateDomainType.createFromString(params.getString("StartDate"));
@@ -84,18 +89,31 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
           OBPropertiesProvider.getInstance().getOpenbravoProperties().getProperty(DATE_FORMAT_JAVA));
       // Blank workbook
       XSSFWorkbook workbook = new XSSFWorkbook();
-      // Create a blank sheet
-      XSSFSheet sheet = null;
-      if (isSale) {
-        sheet = workbook.createSheet(REVENUE_SHEET);
-      } else {
-        sheet = workbook.createSheet(EXPENSE_SHEET);
+
+      // Generate sheets based on combinations
+      if (isSale && !bothSalesPurchase) {
+        XSSFSheet revenueSheet = workbook.createSheet(REVENUE_SHEET);
+        List<Object[]> invoiceDetails = getInvoiceDetails(strBPartnerId, endCustomer, startDate, endDate, true);
+        createRows(revenueSheet, invoiceDetails, startDate, endDate);
+      } else if (!isSale && !bothSalesPurchase) {
+        XSSFSheet expenseSheet = workbook.createSheet(EXPENSE_SHEET);
+        List<Object[]> invoiceDetails = getInvoiceDetails(strBPartnerId, endCustomer, startDate, endDate, false);
+        createRows(expenseSheet, invoiceDetails, startDate, endDate);
+      } else if (bothSalesPurchase) {
+        XSSFSheet revenueSheet = workbook.createSheet(REVENUE_SHEET);
+        List<Object[]> revenueDetails = getInvoiceDetails(strBPartnerId, endCustomer, startDate, endDate, true);
+        createRows(revenueSheet, revenueDetails, startDate, endDate);
+
+        XSSFSheet expenseSheet = workbook.createSheet(EXPENSE_SHEET);
+        List<Object[]> expenseDetails = getInvoiceDetails(strBPartnerId, endCustomer, startDate, endDate, false);
+        createRows(expenseSheet, expenseDetails, startDate, endDate);
+
+        if (isSummary) {
+          XSSFSheet summarySheet = workbook.createSheet(TOTAL_LBL);
+          createSummarySheet(summarySheet, revenueDetails, expenseDetails, SUMMARY_LBL);
+        }
       }
 
-      List<Object[]> invoiceDetails = getInvoiceDetails(strBPartnerId, endCustomer, startDate, endDate, isSale);
-      if (invoiceDetails.size() > 0) {
-        createRows(sheet, invoiceDetails, startDate, endDate);
-      }
       // this Writes the workbook
       FileOutputStream out = new FileOutputStream(
           new File(ReportingUtils.getTempFolder() + "/" + getTmpfileName()));
@@ -107,19 +125,12 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
     } catch (ParseException e) {
       throw new RuntimeException(e);
     }
-    return buildDownloadResponse(parameters, content, true);
-  }
-
-  private static Date convertStringToDate(String dateStr) throws ParseException {
-    SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
-    return formatter.parse(dateStr);
+    return buildDownloadResponse(parameters, content);
   }
 
   private static List<Object[]> getInvoiceDetails(String bpartnerId, String endCustomer, String startingDate,
       String endingDate, boolean salesTransaction) throws ParseException {
 
-    Date startDate = convertStringToDate(startingDate);
-    Date endDate = convertStringToDate(endingDate);
     // Build the base HQL query
     String hql = "select fa.businessPartner.name, il.invoice.documentNo, coalesce(il.invoice.description,'') as description, " +
         "to_char(fa.accountingDate, 'Mon-YYYY') as acctDate, fa.period.endingDate, ";
@@ -170,7 +181,7 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
     hql += "group by fa.businessPartner.name, ";
 
     if (endCustomerEnabled()) {
-        hql += "il.invoice.futdrerEndcustomer, ";
+      hql += "il.invoice.futdrerEndcustomer, ";
     }
 
     hql += "il.invoice.documentNo, il.invoice.description, to_char(fa.accountingDate, 'Mon-YYYY'), fa.period.endingDate ";
@@ -178,7 +189,7 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
     hql += "order by fa.period.endingDate, ";
 
     if (endCustomerEnabled()) {
-        hql += "il.invoice.futdrerEndcustomer, ";
+      hql += "il.invoice.futdrerEndcustomer, ";
     }
 
     hql += "il.invoice.documentNo ";
@@ -212,23 +223,28 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
 
   private static void createRows(XSSFSheet sheet, List<Object[]> invoiceDetails, String startDateStr,
       String endDateStr) {
-    // Start row for invoice lines (after the header)
-    int rowIdx = 1;
+    int rowIdx = 1; // Start row for invoice lines (after the header)
     String endCustomer = "";
     BigDecimal amount = BigDecimal.ZERO;
-    // Date formatter to match the column headers
-    SimpleDateFormat monthYearFormat = new SimpleDateFormat("MMM-yyyy", Locale.ENGLISH);
+
     SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH);
     Calendar startDate = Calendar.getInstance();
     Calendar endDate = Calendar.getInstance();
-
     try {
       startDate.setTime(sdf.parse(startDateStr));
       endDate.setTime(sdf.parse(endDateStr));
     } catch (Exception e) {
       e.printStackTrace();
     }
+    // Bold Style Font
+    XSSFCellStyle boldCellStyle = sheet.getWorkbook().createCellStyle();
+    XSSFFont boldFont = sheet.getWorkbook().createFont();
+    boldFont.setBold(true);
+    boldFont.setFontHeightInPoints((short) 10); // Set font size to 10 pt
+    boldCellStyle.setFont(boldFont);
+
     Map<String, Map<String, Object>> dataMap = new LinkedHashMap<>();
+
     // Process the query results
     for (Object[] result : invoiceDetails) {
       String businessPartner = (String) result[0];
@@ -241,96 +257,175 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
       } else {
         amount = (BigDecimal) result[5];
       }
-      // Populate the data map
       dataMap.putIfAbsent(invoiceNo, new LinkedHashMap<>());
       Map<String, Object> invoiceData = dataMap.get(invoiceNo);
       invoiceData.putIfAbsent("businessPartner", businessPartner);
+      invoiceData.putIfAbsent("invoiceNo", invoiceNo);
       if (endCustomerEnabled()) {
         invoiceData.putIfAbsent("endCustomer", endCustomer);
       }
       invoiceData.putIfAbsent("invoiceDescription", description);
 
-      // Store monthly values
       Map<String, BigDecimal> monthlyValues = (Map<String, BigDecimal>) invoiceData.getOrDefault("monthlyValues",
-          new LinkedHashMap<String, BigDecimal>());
+          new LinkedHashMap<>());
       monthlyValues.put(month, amount);
       invoiceData.put("monthlyValues", monthlyValues);
     }
-    int idx = 0;
-    // Set header row
+
     Set<String> months = new LinkedHashSet<>();
     for (Map<String, Object> invoiceData : dataMap.values()) {
       Map<String, BigDecimal> monthlyValues = (Map<String, BigDecimal>) invoiceData.get("monthlyValues");
       months.addAll(monthlyValues.keySet());
     }
+
     XSSFCellStyle centerCellStyle = sheet.getWorkbook().createCellStyle();
     centerCellStyle.setAlignment(HorizontalAlignment.CENTER);
+
     XSSFCellStyle rightCellStyle = sheet.getWorkbook().createCellStyle();
     rightCellStyle.setAlignment(HorizontalAlignment.RIGHT);
-    // Create the header row
+
+    // Header row
     Row headerRow = sheet.createRow(0);
-    headerRow.createCell(idx).setCellValue(BUSINESS_PARTNER_LBL);
+    headerRow.createCell(0).setCellValue(BUSINESS_PARTNER_LBL);
+    headerRow.createCell(1).setCellValue(INVOICE_NO_LBL);
+    headerRow.createCell(2).setCellValue(INVOICE_DESC_LBL);
+
     if (endCustomerEnabled()) {
-      idx += 1;
-      headerRow.createCell(idx).setCellValue(END_CUSTOMER_LBL);
+      headerRow.createCell(3).setCellValue(END_CUSTOMER_LBL);
     }
-    idx += 1;
-    headerRow.createCell(idx).setCellValue(INVOICE_NO_LBL);
-    idx += 1;
-    headerRow.createCell(idx).setCellValue(INVOICE_DESC_LBL);
-    idx += 1;
 
-    int colIndex = idx;
+    int monthIdx = endCustomerEnabled() ? 4 : 3;
     for (String month : months) {
-      Cell headerRowMonthCell = headerRow.createCell(colIndex++);
-      headerRowMonthCell.setCellValue(month);
-      headerRowMonthCell.setCellStyle(rightCellStyle);
+      headerRow.createCell(monthIdx++).setCellValue(month);
     }
-    Cell headerRowTotalCell = headerRow.createCell(colIndex);
-    headerRowTotalCell.setCellValue(TOTAL_LBL);
-    headerRowTotalCell.setCellStyle(rightCellStyle);
-    idx = 0;
-    // Write the data rows
-    int rowIndex = 1;
-    int rdx = 0;
-    for (Map.Entry<String, Map<String, Object>> entry : dataMap.entrySet()) {
-      Row row = sheet.createRow(rowIndex++);
 
-      String invoiceNo = entry.getKey();
-      Map<String, Object> invoiceData = entry.getValue();
-      String businessPartner = (String) invoiceData.get("businessPartner");
-      String endcustomer = (String) invoiceData.get("endCustomer");
-      String invoiceDescription = (String) invoiceData.get("invoiceDescription");
+    headerRow.createCell(monthIdx).setCellValue(TOTAL_LBL);
+
+    // Populate rows
+    BigDecimal[] monthlyTotals = new BigDecimal[months.size()];
+    for (int i = 0; i < monthlyTotals.length; i++) {
+      monthlyTotals[i] = BigDecimal.ZERO;
+    }
+    int totalColIdx = endCustomerEnabled() ? 4 : 3;
+    for (Map<String, Object> invoiceData : dataMap.values()) {
+      Row row = sheet.createRow(rowIdx++);
+      row.createCell(0).setCellValue((String) invoiceData.get("businessPartner"));
+      row.createCell(1).setCellValue((String) invoiceData.get("invoiceNo"));
+      row.createCell(2).setCellValue((String) invoiceData.get("invoiceDescription"));
+      if (endCustomerEnabled()) {
+        row.createCell(3).setCellValue((String) invoiceData.get("endCustomer"));
+      }
       Map<String, BigDecimal> monthlyValues = (Map<String, BigDecimal>) invoiceData.get("monthlyValues");
 
-      // Business partner, invoiceNo, and invoiceDescription
-      row.createCell(rdx).setCellValue(businessPartner);
-      if (endCustomerEnabled()) {
-        rdx += 1;
-        row.createCell(rdx).setCellValue(endcustomer);
-      }
-      rdx += 1;
-      row.createCell(rdx).setCellValue(invoiceNo);
-      rdx += 1;
-      row.createCell(rdx).setCellValue(invoiceDescription);
-      rdx += 1;
-
-      // Write amounts for each month and calculate the total
-      colIndex = rdx;
-      BigDecimal total = BigDecimal.ZERO;
+      int colIdx = totalColIdx;
+      BigDecimal rowTotal = BigDecimal.ZERO;
       for (String month : months) {
-        BigDecimal amt = monthlyValues.getOrDefault(month, BigDecimal.ZERO);
-        Cell cell = row.createCell(colIndex++);
-        cell.setCellValue(amt.doubleValue());
-        cell.setCellStyle(rightCellStyle);
-        total = total.add(amt);
+        BigDecimal monthValue = monthlyValues.getOrDefault(month, BigDecimal.ZERO);
+        row.createCell(colIdx).setCellValue(monthValue.doubleValue());
+        rowTotal = rowTotal.add(monthValue);
+        monthlyTotals[colIdx - totalColIdx] = monthlyTotals[colIdx - totalColIdx].add(monthValue);
+        colIdx++;
       }
 
-      // Write the total value
-      Cell totalCell = row.createCell(colIndex);
-      totalCell.setCellValue(total.doubleValue());
-      totalCell.setCellStyle(rightCellStyle);
-      rdx = 0;
+      row.createCell(colIdx).setCellValue(rowTotal.doubleValue());
+    }
+
+    // Add total row
+    Row totalRow = sheet.createRow(rowIdx);
+    Cell totalRowCell = totalRow.createCell(0);
+    totalRowCell.setCellValue(TOTAL_LBL);
+    totalRowCell.setCellStyle(boldCellStyle);
+
+
+    int colIdx = totalColIdx;
+    for (BigDecimal monthlyTotal : monthlyTotals) {
+      Cell totalCell = totalRow.createCell(colIdx++);
+      totalCell.setCellValue(monthlyTotal.doubleValue());
+      totalCell.setCellStyle(boldCellStyle);
+    }
+
+    // Add grand total
+    BigDecimal grandTotal = BigDecimal.ZERO;
+    for (BigDecimal monthlyTotal : monthlyTotals) {
+      grandTotal = grandTotal.add(monthlyTotal);
+    }
+    Cell grandTotalCell = totalRow.createCell(colIdx);
+    grandTotalCell.setCellValue(grandTotal.doubleValue());
+    grandTotalCell.setCellStyle(boldCellStyle);
+  }
+
+  private static void createSummarySheet(XSSFSheet summarySheet, List<Object[]> revenueDetails,
+      List<Object[]> expenseDetails, String summaryType) {
+    int colIdx = 1; // Start from the second column to allow the first column for labels (Deferred Revenue, etc.)
+
+    XSSFCellStyle boldCellStyle = summarySheet.getWorkbook().createCellStyle();
+    XSSFFont boldFont = summarySheet.getWorkbook().createFont();
+    boldFont.setBold(true);
+    boldFont.setFontHeightInPoints((short) 10); // Set font size to 10 pt
+    boldCellStyle.setFont(boldFont);
+
+    // Map to store month-year data for deferred revenue and expense
+    Map<String, BigDecimal> revenueMap = new LinkedHashMap<>();
+    Map<String, BigDecimal> expenseMap = new LinkedHashMap<>();
+
+    // Populate the revenue map
+    for (Object[] result : revenueDetails) {
+      String monthYear = (String) result[3];
+      BigDecimal amount = (BigDecimal) result[6];
+      revenueMap.put(monthYear, revenueMap.getOrDefault(monthYear, BigDecimal.ZERO).add(amount));
+    }
+
+    // Populate the expense map
+    for (Object[] result : expenseDetails) {
+      String monthYear = (String) result[3];
+      BigDecimal amount = (BigDecimal) result[6];
+      expenseMap.put(monthYear, expenseMap.getOrDefault(monthYear, BigDecimal.ZERO).add(amount));
+    }
+
+    // Determine all unique months
+    Set<String> allMonths = new LinkedHashSet<>();
+    allMonths.addAll(revenueMap.keySet());
+    allMonths.addAll(expenseMap.keySet());
+
+    // Create the header row with months
+    Row headerRow = summarySheet.createRow(0);
+    headerRow.createCell(0).setCellValue("");
+    for (String monthYear : allMonths) {
+      Cell cell = headerRow.createCell(colIdx++);
+      cell.setCellValue(monthYear);
+    }
+
+    // Row for Deferred Revenue
+    Row revenueRow = summarySheet.createRow(1);
+    revenueRow.createCell(0).setCellValue(REVENUE_LBL);
+    colIdx = 1;
+    for (String monthYear : allMonths) {
+      BigDecimal revenue = revenueMap.getOrDefault(monthYear, BigDecimal.ZERO);
+      revenueRow.createCell(colIdx++).setCellValue(revenue.doubleValue());
+    }
+
+    // Row for Deferred Expense
+    Row expenseRow = summarySheet.createRow(2);
+    expenseRow.createCell(0).setCellValue(EXPENSE_LBL);
+    colIdx = 1;
+    for (String monthYear : allMonths) {
+      BigDecimal expense = expenseMap.getOrDefault(monthYear, BigDecimal.ZERO);
+      expenseRow.createCell(colIdx++).setCellValue(expense.doubleValue());
+    }
+
+    // Row for Difference
+    Row differenceRow = summarySheet.createRow(3);
+    Cell differenceRowCell = differenceRow.createCell(0);
+    differenceRowCell.setCellValue(TOTAL_LBL);
+    differenceRowCell.setCellStyle(boldCellStyle);
+    colIdx = 1;
+    for (String monthYear : allMonths) {
+      BigDecimal revenue = revenueMap.getOrDefault(monthYear, BigDecimal.ZERO);
+      BigDecimal expense = expenseMap.getOrDefault(monthYear, BigDecimal.ZERO);
+      BigDecimal difference = revenue.subtract(expense);
+      Cell differenceRowCells = differenceRow.createCell(colIdx++);
+      differenceRowCells.setCellValue(difference.doubleValue());
+      differenceRowCells.setCellStyle(boldCellStyle);
     }
   }
 
@@ -344,17 +439,16 @@ public class ReportDeferredRevenueExpenses extends BaseProcessActionHandler {
               client, organization, null, null, null)
           .equals("Y");
     } catch (PropertyException e) {
-      endCustomerEnabled = false;
+      log.error(e);
     }
     return endCustomerEnabled;
   }
 
-  protected JSONObject buildDownloadResponse(Map<String, Object> parameters, String content,
-      boolean isExport) {
+  protected JSONObject buildDownloadResponse(Map<String, Object> parameters, String content) {
     JSONObject result = new JSONObject();
     try {
       final JSONArray actions = new JSONArray();
-      actions.put(0, buildReportAction(parameters, content, isExport));
+      actions.put(0, buildReportAction(parameters, content, true));
       result.put("responseActions", actions);
     } catch (JSONException ignore) {
     }
